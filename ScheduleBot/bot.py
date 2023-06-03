@@ -1,8 +1,9 @@
 import datetime
 import re
-import humanize 
+import humanize
 import time
 import locale
+import pytz
 
 from methods import Methods
 from telegram import ReplyKeyboardRemove, Bot
@@ -26,21 +27,21 @@ class Starter:
         if group_name != None:
             if bot_db.is_owner(user_id) == True:
                 context.bot.send_message(chat_id=update.effective_chat.id, text=f"С возвращением, староста!", reply_markup=Keyboard.owner)
-            else: 
+            else:
                 context.bot.send_message(chat_id=update.effective_chat.id, text=f"С возвращением!", reply_markup=Keyboard.user)
 
         else:
             # Если пользователь не состоит в группе, выводим сообщение об этом
-            context.bot.send_message(chat_id=update.effective_chat.id, 
-                                    text="Вы не состоите ни в одной группе. Для продолжение выбирите кнопку ниже.", 
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                    text="Вы не состоите ни в одной группе. Для продолжение выбирите кнопку ниже.",
                                     reply_markup=Keyboard.new_user)
 
     def create_group(update, context):
-        if (bot_db.user_exist(update.effective_user.id )): 
-            context.bot.send_message(chat_id=update.effective_chat.id, text="Вы уже состоите в группе", 
+        if (bot_db.user_exist(update.effective_user.id )):
+            context.bot.send_message(chat_id=update.effective_chat.id, text="Вы уже состоите в группе",
                                      reply_markup= Keyboard.owner if bot_db.is_owner(update.effective_user.id) else Keyboard.user)
             ConversationHandler.END
-        else: 
+        else:
             context.bot.send_message(chat_id=update.effective_chat.id, text="Введите название группы:")
             return "CREATE_GROUP"
 
@@ -51,22 +52,22 @@ class Starter:
         user_name = update.effective_user.username
         if user_name == None: user_name = update.effective_user.first_name
         bot_db.create_group(user_id, group_name, password, user_name)
-        
+
         context.bot.send_message(chat_id=update.effective_chat.id,
                                 text=f"Группа {group_name} успешно создана.\n"
-                                    f"Код пароля для присоединения к группе: {password}", 
+                                    f"Код пароля для присоединения к группе: {password}",
                                     reply_markup=Keyboard.owner)
         return ConversationHandler.END
 
     def join_group(update, context):
         user_id = update.effective_user.id
-        if (bot_db.user_exist(user_id)): 
+        if (bot_db.user_exist(user_id)):
             context.bot.send_message(chat_id=update.effective_chat.id, text="Вы уже состоите в группе", reply_markup= (Keyboard.owner if bot_db.is_owner(user_id) else Keyboard.user))
             return ConversationHandler.END
         else:
             context.bot.send_message(chat_id=update.effective_chat.id, text="Введите код группы для присоединения:")
             return "JOIN_GROUP"
-        
+
     def handle_join_group(update, context):
         password = update.message.text
         user_id = update.effective_user.id
@@ -90,10 +91,10 @@ class Scheduler:
         if (bot_db.is_owner(update.effective_user.id)):
             context.bot.send_message(chat_id=update.effective_chat.id, text="Введите название предмета:", reply_markup = ReplyKeyboardRemove())
             return ADD_LESSON_NAME
-        else: 
-            context.bot.send_message(chat_id=update.effective_chat.id, text="У вас нет доступа к этой команде") 
+        else:
+            context.bot.send_message(chat_id=update.effective_chat.id, text="У вас нет доступа к этой команде")
             return ConversationHandler.END
-            
+
     def handle_add_lesson_name(update, context):
         lesson_name = update.message.text
         context.user_data['lesson_name'] = lesson_name
@@ -101,20 +102,20 @@ class Scheduler:
 
         return ADD_LESSON_ROOM
 
-    def handle_add_lesson_room(update, context): 
+    def handle_add_lesson_room(update, context):
         lesson_room = update.message.text
         context.user_data['lesson_room'] = lesson_room
         context.bot.send_message(chat_id=update.effective_chat.id, text="Выберите день недели:", reply_markup=Keyboard.week)
-        
+
         return ADD_LESSON_DAY
 
     def handle_add_lesson_day(update, context):
         lesson_day = update.message.text
-            
-        if (not Methods.check_day(lesson_day)): 
+
+        if (not Methods.check_day(lesson_day)):
             update.message.reply_text("Некоректный ввод, попробуйте снова")
             return ADD_LESSON_DAY
-        
+
         context.user_data['lesson_day'] = lesson_day
         context.bot.send_message(chat_id=update.effective_chat.id, text="Выберите время:", reply_markup=Keyboard.time)
 
@@ -134,7 +135,7 @@ class Scheduler:
         bot_db.add_lesson(group_name, lesson_time, lesson_day, lesson_room, lesson_name)
 
         context.bot.send_message(chat_id=update.effective_chat.id,
-                                text="Расписание успешно обновлено.", 
+                                text="Расписание успешно обновлено.",
                                 reply_markup=Keyboard.owner)
         return ConversationHandler.END
 
@@ -142,99 +143,99 @@ class Scheduler:
         context.bot.send_message(chat_id=update.effective_chat.id, text="Выберите день:", reply_markup=Keyboard.today_week)
         return "GET_SCHEDULE"
 
-    def handle_get_schedule(update, context): 
+    def handle_get_schedule(update, context):
         user_id = update.effective_user.id
         group_name = bot_db.get_group_name(user_id)
         owner = bot_db.is_owner(user_id)
-        day = update.message.text 
-        if (day == 'Сегодня'): 
+        day = update.message.text
+        if (day == 'Сегодня'):
             day = datetime.datetime.today().strftime('%A').capitalize()
-        
+
         lessons = bot_db.get_schedule(group_name, day)
 
-        if lessons: 
+        if lessons:
             schedule_text = Methods.print_schedule(lessons, day)
             context.bot.send_message(chat_id=update.effective_chat.id, text=schedule_text, reply_markup= (Keyboard.owner if owner else Keyboard.user))
         else:
             context.bot.send_message(chat_id=update.effective_chat.id, text="Расписание пусто", reply_markup= (Keyboard.owner if owner else Keyboard.user))
-        
+
         return ConversationHandler.END
 
-class Sender: 
+class Sender:
     def send_schedule_to_all_users(bot):
         user_ids = bot_db.get_all_users(0)
         day = (datetime.datetime.today() + datetime.timedelta(days=1)).strftime('%A').capitalize()
         for user_data in user_ids:
-            
-            if (int(user_data[2]) == 0): continue 
+
+            if (int(user_data[2]) == 0): continue
             if (not user_data[1]): continue
 
             schedule = bot_db.get_schedule(bot_db.get_group_name(user_data[0]), day)
-            
+
             if schedule:
                 time.sleep(1)
                 bot.send_message(chat_id=user_data[0], text=f"Ваше расписание на завтра:\n{Methods.print_schedule(schedule, day)}")
-    
-    def switch_notification(update, context): 
+
+    def switch_notification(update, context):
         user_id = update.effective_user.id
-        if (bot_db.check_notification_status(user_id)): 
+        if (bot_db.check_notification_status(user_id)):
             bot_db.switch_notification(user_id, '0')
             context.bot.send_message(chat_id=user_id, text="Ежедневное уведомление о расписании в 20:00 - выключенно")
-        else: 
+        else:
             bot_db.switch_notification(user_id, '1')
             context.bot.send_message(chat_id=user_id, text="Ежедневное уведомление о расписании в 20:00 - включенно")
-    
-    def push_sender(update, context, group_name): 
+
+    def push_sender(update, context, group_name):
         user_ids = bot_db.get_user_id_from_group(group_name)
-        for i in user_ids: 
+        for i in user_ids:
             if (int(i[1]) == 1): continue
             else:
                 context.bot.send_message(chat_id=i[0], text="В группе появились новые уведомления", reply_markup = Keyboard.show)
-        
+
 class Notificator:
 # Функция обработки команды /get_notifications
     def get_notifications(update, context):
         user_id = update.effective_user.id
         group_name = bot_db.get_group_name(user_id)
-        now_date = datetime.datetime.today().strftime("%y.%m.%d")
-        
+        now_date = datetime.datetime.now(pytz.timezone('Europe/Moscow')).strftime("%y.%m.%d")
+
         result = bot_db.get_notifications(now_date, group_name)
-        
+
         notification_text = ""
 
         if not result:
             update.message.reply_text("В группе нет уведомлений.")
         else:
-            for notification in result: 
+            for notification in result:
                 date = notification[1].split(".")
                 notification_text += f"|{date[2]}.{date[1]}.{date[0]}| \n{notification[0]}\n\n"
-            update.message.reply_text(f"Уведомления группы:\n{notification_text}", reply_markup= Keyboard.owner if bot_db.is_owner(user_id) else Keyboard.user) 
-                
+            update.message.reply_text(f"Уведомления группы:\n{notification_text}", reply_markup= Keyboard.owner if bot_db.is_owner(user_id) else Keyboard.user)
+
     # Функция обработки команды /add_notification
     def add_notification(update, context):
         if (bot_db.is_owner(update.effective_user.id)):
             update.message.reply_text("Введите текст уведомления:")
             return "ADD_DAY"
-        else: 
-            context.bot.send_message(chat_id=update.effective_chat.id, text="У вас нет доступа к этой команде") 
+        else:
+            context.bot.send_message(chat_id=update.effective_chat.id, text="У вас нет доступа к этой команде")
             return ConversationHandler.END
 
-    def handle_add_day_until(update,context): 
+    def handle_add_day_until(update,context):
         context.user_data['notification_text'] = update.message.text
         update.message.reply_text("Введите сколько дней будет доступно уведомление")
         return "ENTER_NOTIFICATION"
 
     # Функция обработки ответа с уведомлением для группы
-    def handle_notification(update, context): 
+    def handle_notification(update, context):
         notification_day = update.message.text
 
-        if ((not re.match('^[0-9]*$', notification_day)) or int(notification_day) <= 0): 
+        if ((not re.match('^[0-9]*$', notification_day)) or int(notification_day) <= 0):
             update.message.reply_text("Некоректный ввод, введите корректную информацию")
             return "ENTER_NOTIFICATION"
-        elif (int(notification_day) > 60): 
+        elif (int(notification_day) > 60):
             update.message.reply_text("Наш бот обрабатывает лишь уведомления сроком не более 60 дней, пожалуйста введите коректнуо число")
             return "ENTER_NOTIFICATION"
-        
+
         notification_text = context.user_data['notification_text']
         until_day = (datetime.datetime.today() + datetime.timedelta(days= int(notification_day))).strftime("%y.%m.%d")
         group_name = bot_db.get_group_name(update.effective_user.id)
@@ -245,15 +246,15 @@ class Notificator:
         Sender.push_sender(update=update, context=context, group_name=group_name)
         return ConversationHandler.END
 
-class Statuser: 
-    def get_status(update, context): 
+class Statuser:
+    def get_status(update, context):
         humanize.i18n.activate("ru_RU")
         user_id = update.effective_user.id
         group_name = bot_db.get_group_name(user_id)
         day = str(datetime.datetime.today().strftime('%A').capitalize())
-        time_now_min = int(datetime.datetime.today().strftime('%M'))
-        time_now_hour = int(datetime.datetime.today().strftime('%H'))
-        
+        time_now_min = int(datetime.datetime.now(pytz.timezone('Europe/Moscow')).strftime('%M'))
+        time_now_hour = int(datetime.datetime.now(pytz.timezone('Europe/Moscow')).strftime('%H'))
+
         status = bot_db.get_status(group_name, day)
 
         min_difference = 1000000
@@ -261,8 +262,8 @@ class Statuser:
         name_less_with_min_dif = ""
         name_current_less = ""
         status_text = ""
-        if status: 
-            for current in status: 
+        if status:
+            for current in status:
                 times = current[1].split("-")
                 count_now_min = (time_now_hour * 60 + time_now_min)
                 start_lessons_time_hour = int(times[0].split(":")[0])
@@ -273,38 +274,38 @@ class Statuser:
                     time_until_end = (end_lessons_time_hour * 60 + end_lessons_time_min) - count_now_min
                     name_current_less = current[0]
                     count_min_current_less = (end_lessons_time_hour * 60 + end_lessons_time_min) - (start_lessons_time_hour * 60 + start_lessons_time_min)
-                elif (count_now_min < (start_lessons_time_hour * 60 + start_lessons_time_min)): 
+                elif (count_now_min < (start_lessons_time_hour * 60 + start_lessons_time_min)):
                     difference = (start_lessons_time_hour * 60 + start_lessons_time_min) - count_now_min
                     if min_difference > difference:
                         min_difference = difference
                         name_less_with_min_dif = current[0]
-                else: 
+                else:
                     continue
-            if (name_current_less != ""): 
+            if (name_current_less != ""):
                 time_after_start = ((count_min_current_less - time_until_end) / count_min_current_less) * 100
                 progress_bar = "|"
 
                 for i in range(10):
-                    if (time_after_start > 10): 
+                    if (time_after_start > 10):
                         progress_bar += "⬜"
                         time_after_start -= 10
-                    else: 
+                    else:
                         progress_bar += " —"
                 progress_bar += "|"
                 status_text += f"Сейчас идет: {name_current_less} \n {progress_bar} до конца: {humanize.precisedelta(datetime.timedelta(minutes=time_until_end))}\n"
-            if (min_difference != 1000000): 
+            if (min_difference != 1000000):
                 status_text += f"Следующее занятие {name_less_with_min_dif} начнется через {humanize.precisedelta(datetime.timedelta(minutes=difference))}"
-            if (name_current_less == "" and min_difference == 1000000): 
+            if (name_current_less == "" and min_difference == 1000000):
                 status_text += "Сегодня пар больше не будет"
-        else: 
+        else:
             status_text += "Сегодня у вас нет пар"
 
         context.bot.send_message(chat_id=update.effective_chat.id, text=status_text, reply_markup=Keyboard.owner if bot_db.is_owner(user_id) else Keyboard.user)
 
-class Deleter: 
+class Deleter:
     def delete_group(update, context):
         user_id = update.effective_user.id
-        owner = bot_db.is_owner(user_id) 
+        owner = bot_db.is_owner(user_id)
         group = bot_db.get_group_name(user_id)
 
         if owner:
@@ -313,44 +314,44 @@ class Deleter:
         else:
             context.bot.send_message(chat_id=update.effective_chat.id, text="У вас нет доступа к этой команде")
 
-    def delete_lesson(update, context): 
+    def delete_lesson(update, context):
         user_id = update.effective_user.id
-        owner = bot_db.is_owner(user_id) 
-        if owner: 
+        owner = bot_db.is_owner(user_id)
+        if owner:
             context.bot.send_message(chat_id=update.effective_chat.id, text="Выберите день:", reply_markup=Keyboard.week)
             return "DELETE_LESSON_TIME"
-        else: 
+        else:
             context.bot.send_message(chat_id=update.effective_chat.id, text="У вас нет доступа к этой команде")
             return ConversationHandler.END
 
-    def delete_lesson_time(update, context): 
+    def delete_lesson_time(update, context):
         user_id = update.effective_user.id
         day = update.message.text
         context.user_data['day'] = day
         result = bot_db.give_time_with_lesson(bot_db.get_group_name(user_id), day)
 
-        if result: 
+        if result:
             time_buttons = []
-            for i in result: 
+            for i in result:
                 button = []
                 button.append(f"|{i[1]}| {i[0]}")
                 time_buttons.append(button)
             context.user_data['buttons'] = time_buttons
             context.bot.send_message(chat_id=update.effective_chat.id, text="Выберете занятие которое хотите удалить:", reply_markup = ReplyKeyboardMarkup(keyboard=time_buttons, resize_keyboard=True,one_time_keyboard=True))
             return "HANDLE_DELETE_LESSON"
-        else: 
+        else:
             context.bot.send_message(chat_id=update.effective_chat.id, text="В этот день у вас нет занятий")
             return ConversationHandler.END
 
-    def handle_delete_lesson(update, context): 
+    def handle_delete_lesson(update, context):
         lesson = update.message.text
         buttons = context.user_data['buttons']
-        
-        if (not Methods.check_lessons(buttons, lesson)): 
+
+        if (not Methods.check_lessons(buttons, lesson)):
             context.bot.send_message(chat_id=update.effective_chat.id, text="В этот день нет такой пары, выберете одну из кнопок")
             return "HANDLE_DELETE_LESSON"
-        
-        user_id = update.effective_user.id 
+
+        user_id = update.effective_user.id
         group_name = bot_db.get_group_name(user_id)
         day = context.user_data['day']
         lesson_name = lesson.split()[-1]
@@ -358,39 +359,39 @@ class Deleter:
         context.bot.send_message(chat_id=update.effective_chat.id, text="Занятие успешно удалено", reply_markup= Keyboard.owner)
         return ConversationHandler.END
 
-class Another: 
-    def leave_group(update, context): 
+class Another:
+    def leave_group(update, context):
         user_id = update.effective_user.id
         group_name = bot_db.get_group_name(user_id)
         if (not bot_db.is_owner(user_id)):
-            bot_db.delete_user(update.effective_user.id)
+            bot_db.delete_user(str(user_id))
             context.bot.send_message(chat_id=update.effective_chat.id, text=f"Вы успешно покинули группу {group_name}", reply_markup=Keyboard.new_user)
-        else: 
+        else:
             context.bot.send_message(chat_id=update.effective_chat.id, text=f"Вы не можете покинуть группу, так как являетесь её старостой. При желании удалить группу воспользуйтесь командой /delete_group", reply_markup=Keyboard.owner)
 
     def unknown(update, context):
         context.bot.send_message(chat_id=update.effective_chat.id,
                                 text="Извините, я не понимаю эту команду.")
-    
-    def commands(update, context): 
-        context.bot.send_message(chat_id=update.effective_chat.id, 
+
+    def commands(update, context):
+        context.bot.send_message(chat_id=update.effective_chat.id,
                                  text="Список команд для старост: \n •/delete_group - удаление группы \n •/delete_lesson - удаление занятия \n\n Список общих команд: \n •/leave - покинуть группу \n •/switch_notification - Включение/отключение ежедневного уведомления \n •/users - Список всех пользователей")
-    
-    def get_list_users(update, context): 
+
+    def get_list_users(update, context):
         user_id = update.effective_user.id
         user_name = update.effective_user.username
 
         group_name = bot_db.get_group_name(user_id)
-        users = bot_db.get_list_users(group_name) 
+        users = bot_db.get_list_users(group_name)
         owner = bot_db.get_owner(group_name)
-        
+
         text = f'|Староста|\n@{owner[0]}'
 
         if owner[0] == user_name: text+= ' <- это вы\n'
         else: text += '\n'
 
         text += '|Юзеры|\n'
-        for i in users: 
+        for i in users:
             text += f'@{i[0]}'
             if i[0] == user_name: text += ' <- это вы\n'
             else: text += '\n'
@@ -411,7 +412,7 @@ def main():
         },
         fallbacks=[]
     )
-    
+
     unknown_handler = MessageHandler(Filters.command, Another.unknown)
 
     create_group_handler = ConversationHandler(
@@ -430,12 +431,12 @@ def main():
         fallbacks=[]
     )
 
-    delete_lesson_handler = ConversationHandler( 
-        entry_points=[CommandHandler('delete_lesson', Deleter.delete_lesson)], 
-        states={ 
-            "DELETE_LESSON_TIME": [MessageHandler(Filters.text, Deleter.delete_lesson_time)], 
+    delete_lesson_handler = ConversationHandler(
+        entry_points=[CommandHandler('delete_lesson', Deleter.delete_lesson)],
+        states={
+            "DELETE_LESSON_TIME": [MessageHandler(Filters.text, Deleter.delete_lesson_time)],
             "HANDLE_DELETE_LESSON": [MessageHandler(Filters.text, Deleter.handle_delete_lesson)]
-        }, 
+        },
         fallbacks=['cancel']
     )
 
@@ -479,7 +480,7 @@ def main():
     updater.start_polling()
 
     while True:
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(pytz.timezone('Europe/Moscow'))
         if now.hour == 20 and now.minute == 0 and now.second == 0:
             Sender.send_schedule_to_all_users(bot)
         time.sleep(1)
@@ -487,8 +488,8 @@ def main():
     # Остановка бота при нажатии Ctrl+C
     updater.idle()
 
-    
+
 
 if __name__ == '__main__':
     main()
-    
+
