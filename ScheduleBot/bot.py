@@ -4,7 +4,7 @@ import humanize
 import time
 import locale
 
-from Methods import Methods
+from methods import Methods
 from telegram import ReplyKeyboardRemove, Bot
 from bot_config import Token
 from keyboards import Keyboard
