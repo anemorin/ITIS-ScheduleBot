@@ -168,7 +168,7 @@ class Scheduler:
 
 class Sender:
     def send_schedule_to_all_users(bot):
-        user_ids = bot_db.get_all_users(0)
+        user_ids = bot_db.get_all_users()
         day = (datetime.datetime.today() + datetime.timedelta(days=1)).strftime('%A').capitalize()
         for user_data in user_ids:
 
