@@ -15,6 +15,12 @@ class BotDB:
         if int(result[0]) == 1: return True
         else: return False
 
+    def group_name_exist(self, group_name): 
+        result = self.cursor.execute("SELECT * FROM groups WHERE group_name=?", (group_name,)).fetchone()
+
+        if result and result[0]: return True
+        else: return False
+
     def user_exist(self, user_id):
         result = self.cursor.execute("SELECT group_name FROM users WHERE user_id=?", (user_id,)).fetchone()
 

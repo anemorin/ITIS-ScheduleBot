@@ -47,6 +47,11 @@ class Starter:
 
     def handle_create_group(update, context):
         group_name = update.message.text
+
+        if (bot_db.group_name_exist(group_name)): 
+            context.bot.send_message(chat_id=update.effective_chat.id, text="Группа с таким названием уже существует, попробуйте другое название")
+            return "CREATE_GROUP"
+        
         password = Methods.generate_password()
         user_id = update.effective_user.id
         user_name = update.effective_user.username
